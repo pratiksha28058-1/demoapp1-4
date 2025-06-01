@@ -1,0 +1,106 @@
+name: DemoAppp/Sunny/Authentication
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - apps/authentication/*
+    - "!apps/*"
+    - "!apps/container/*"
+    - "!apps/dashboard/*"
+    - "!apps/authentication/*"
+    - "!apps/checkout/*"
+env:
+  system_debug: 'false'
+jobs:
+  Job_1:
+    name: Agent job 1
+    runs-on:
+      - self-hosted
+      - ubuntu latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: Use Node 20.x
+      uses: actions/setup-node@v4.0.0
+      with:
+        node-version: 20.x
+    - name: Command npm install authentication
+      run: |-
+        npm install -f
+        npm install -g nx
+        nx --version
+      working-directory: apps/authentication
+    - name: Command npm build authentication
+      run: |-
+        nx reset
+        npx nx run authentication:build
+      working-directory: apps/authentication
+    - name: Command npm build container
+      if: 'false'
+      run: npx nx run container:build
+      working-directory: apps/container
+    # The following script preserves the globbing behavior of the CopyFiles task.
+    # Refer to this transformer's documentation for an alternative that will work in simple cases.
+    - name: 'Copy Files to: ${{ runner.temp }}/dist'
+      uses: actions/github-script@v7.0.0
+      env:
+        TARGET_FOLDER: "${{ runner.temp }}/dist"
+        SOURCE_FOLDER: dist
+        CLEAN_TARGET_FOLDER: false
+        FLATTEN_FOLDERS: false
+        OVERWRITE: false
+        CONTENTS: "**"
+      with:
+        github-token: "${{ secrets.GITHUB_TOKEN }}"
+        script: |-
+          const fs = require('fs').promises
+          const path = require('path')
+          const target = path.resolve(process.env.TARGET_FOLDER)
+          process.chdir(process.env.SOURCE_FOLDER || '.')
+          if (process.env.CLEAN_TARGET_FOLDER === 'true') await io.rmRF(target)
+          const flattenFolders = process.env.FLATTEN_FOLDERS === 'true'
+          const options = {force: process.env.OVERWRITE === 'true'}
+          const globber = await glob.create(process.env.CONTENTS || '**')
+          for await (const file of globber.globGenerator()) {
+            if ((await fs.lstat(file)).isDirectory()) continue
+            const filename = flattenFolders ? path.basename(file) : file.substring(process.cwd().length)
+            const dest = path.join(target, filename)
+            await io.mkdirP(path.dirname(dest))
+            await io.cp(file, dest, options)
+          }
+    # The following script preserves the globbing behavior of the CopyFiles task.
+    # Refer to this transformer's documentation for an alternative that will work in simple cases.
+    - name: 'Copy Files to: combinedfolder'
+      if: 'false'
+      uses: actions/github-script@v7.0.0
+      env:
+        TARGET_FOLDER: "${{ runner.temp }}/dist/combinedfolder"
+        SOURCE_FOLDER: "${{ runner.temp }}/dist/"
+        CLEAN_TARGET_FOLDER: false
+        FLATTEN_FOLDERS: false
+        OVERWRITE: false
+        CONTENTS: "**"
+      with:
+        github-token: "${{ secrets.GITHUB_TOKEN }}"
+        script: |-
+          const fs = require('fs').promises
+          const path = require('path')
+          const target = path.resolve(process.env.TARGET_FOLDER)
+          process.chdir(process.env.SOURCE_FOLDER || '.')
+          if (process.env.CLEAN_TARGET_FOLDER === 'true') await io.rmRF(target)
+          const flattenFolders = process.env.FLATTEN_FOLDERS === 'true'
+          const options = {force: process.env.OVERWRITE === 'true'}
+          const globber = await glob.create(process.env.CONTENTS || '**')
+          for await (const file of globber.globGenerator()) {
+            if ((await fs.lstat(file)).isDirectory()) continue
+            const filename = flattenFolders ? path.basename(file) : file.substring(process.cwd().length)
+            const dest = path.join(target, filename)
+            await io.mkdirP(path.dirname(dest))
+            await io.cp(file, dest, options)
+          }
+    - name: 'Publish Artifact: drop'
+      uses: actions/upload-artifact@v4.1.0
+      with:
+        name: drop
+        path: " ${{ runner.temp }}/dist/"
